@@ -20,75 +20,95 @@ import {
   getNumberFromBN,
 } from "@streamflow/stream";
 import { useEffect } from "react";
-import { WalletConnector } from "../components/WalletConnector";
-// import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Connection } from "@solana/web3.js";
-// import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { useWallet } from "../components/WalletProvider";
+import { useWallet as useWallet2 } from "@solana/wallet-adapter-react";
+import { PublicKey, Connection, ParsedAccountData } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Client, UtlConfig } from "@solflare-wallet/utl-sdk";
+import { clusterApiUrl } from "@solana/web3.js";
+
+const DEVENT_API = "https://api.devnet.solana.com/"; // clusterApiUrl("devnet"); //
+const DEVNET_PK = "9U3CcDLVgFxH8z7QYiEjxRgimrKM9yT8XWRvWm3SqnoE";
 
 export default function Home() {
-  // const w = useWallet();
+  const wallet = useWallet();
 
   useEffect(() => {
     const doSomething = async () => {
-      const publicKey = new PublicKey(
-        "9U3CcDLVgFxH8z7QYiEjxRgimrKM9yT8XWRvWm3SqnoE"
+      const publicKey = new PublicKey(DEVNET_PK);
+      const solana = new Connection(DEVENT_API);
+      // Fetch the balance for the specified public key
+      const balance = await solana.getBalance(publicKey);
+      console.log(balance);
+      // Fetch and parse all the accounts owned by the specified program id
+      const parsedAcc = await solana.getParsedProgramAccounts(
+        TOKEN_PROGRAM_ID,
+        {
+          filters: [
+            {
+              dataSize: 165, // number of bytes,
+            },
+            {
+              memcmp: {
+                offset: 32, // number of bytes
+                bytes: publicKey.toBase58(), // base58 encoded string
+              },
+            },
+          ],
+        }
       );
-      // const solana = new Connection("https://api.devnet.solana.com/");
-      // const balance = await solana.getBalance(publicKey);
-      // const parsed = await solana.getParsedProgramAccounts(TOKEN_PROGRAM_ID, {
-      //   filters: [
-      //     {
-      //       dataSize: 165, // number of bytes
-      //     },
-      //     {
-      //       memcmp: {
-      //         offset: 32, // number of bytes
-      //         bytes: publicKey.toBase58(), // base58 encoded string
-      //       },
-      //     },
-      //   ],
-      // });
-      // // const tokBalance = await solana.getTokenAccountBalance(publicKey);
+
+      const res = [];
+      for (const tokenAccount of parsedAcc) {
+        const splMint = (tokenAccount.account.data as ParsedAccountData).parsed
+          .info.mint;
+
+        // const rr = await solana.getTokenAccountsByOwner(publicKey, {
+        //   mint: splMint
+        // });
+
+        const tokenBalance = await solana.getTokenAccountBalance(
+          tokenAccount.pubkey
+        );
+
+        const balance = await solana.getBalance(tokenAccount.pubkey);
+
+        console.log({
+          mint: splMint,
+          amount: tokenBalance.value.amount,
+          balance,
+        });
+      }
+
+      // solana.getTokenAccountBalance;
       // const tokAccs = await solana.getTokenAccountsByOwner(publicKey, {
-      //   mint: new PublicKey(
-      //     "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"
-      //   ),
+      //   mint: new PublicKey("So11111111111111111111111111111111111111112"),
       // });
 
-      // console.log({ balance, parsed, tokAccs });
+      // // Fetch the current balance of a token account
+      // const tokBalance = await solana.getTokenAccountBalance(
+      //   tokAccs.value[0].pubkey
+      // );
 
-      const client = new StreamClient(
-        "https://api.devnet.solana.com/",
-        Cluster.Devnet,
-        "confirmed"
-      );
+      // console.log({ balance, parsedAcc, tokAccs, tokBalance });
 
-      const rv = await client.get({
+      const client = new StreamClient(DEVENT_API, Cluster.Devnet, "confirmed");
+
+      const sfStreams = await client.get({
         wallet: publicKey,
       });
 
-      console.log({ rv });
+      console.log({ sfStreams });
 
-      //     await fetch('https://api.devnet.solana.com/', {
-      //       method: 'POST',
-      //       headers: { "Content-Type": "application/json" },
-      // body: JSON.stringify(
-      //     {
-      //       jsonrpc: "2.0",
-      //       id: 1,
-      //       method: "getTokenAccountsByOwner",
-      //       params: [
-      //         ,
-      //         {
-      //           mint: 'DNw99999M7e24g99999999WJirKeZ5fQc6KY999999gK',
-      //         },
-      //         {
-      //           encoding: "jsonParsed",
-      //         },
-      //       ],
-      //     },
-      // )
-      //     })
+      // const utl = new Client(
+      //   new UtlConfig({
+      //     /**
+      //      * 101 - mainnet, 102 - testnet, 103 - devnet
+      //      */
+      //     chainId: 103,
+      //     connection: new Connection("https://api.devnet.solana.com/"),
+      //   })
+      // );
 
       //   const createStreamParams: CreateParams = {
       //     sender: wallet, // Wallet/Keypair signing the transaction, creating and sending the stream.
@@ -141,16 +161,30 @@ export default function Home() {
       </Head>
 
       <main>
-        {/* <button
-          onClick={async () => {
-            await wallet.connect();
-          }}
-        >
-          connect
-        </button> */}
-
-        {/* <div>{wallet.connected ? wallet.publicKey?.toString() : "none"}</div> */}
-        <WalletConnector />
+        {/* wallet connector */}
+        <div>
+          {wallet ? (
+            <div>
+              {!wallet.publicKey ? (
+                <button onClick={() => wallet.connect()}>
+                  Connect to Phantom
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => wallet.disconnect()}>
+                    Disconnect from Phantom
+                  </button>
+                  <p>Your public key is : {wallet.publicKey.toBase58()}</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div>
+              Opps!!! Phantom is not available. Go get it{" "}
+              <a href="https:phantom.app/">https:phantom.app/</a>.
+            </div>
+          )}
+        </div>
       </main>
     </>
   );
