@@ -10,7 +10,7 @@ yarn dev
 
 ### TODOs
 
-- (optional) fetch correct amounts per token (see /Users/draganokanovic/code/aalgo/sf_doo_hw/components/TokenSelectorInput.tsx:78)
+- (optional) fetch correct amounts per token (see `/components/TokenSelectorInput.tsx:78`)
 
 possible improvements:
 - error handling
