@@ -11,7 +11,10 @@
   "dependencies": {
     "@next/font": "13.0.7",
     "@project-serum/anchor": "^0.25.0",
+    "@solana/spl-token": "^0.3.6",
+    "@solana/wallet-adapter-react": "^0.15.26",
     "@solana/web3.js": "^1.70.1",
+    "@solflare-wallet/utl-sdk": "^1.1.2",
     "@streamflow/stream": "^3.0.16",
     "@types/node": "18.11.15",
     "@types/react": "18.0.26",
