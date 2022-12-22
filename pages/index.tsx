@@ -19,19 +19,51 @@ import {
   getBN,
   getNumberFromBN,
 } from "@streamflow/stream";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWallet } from "../components/WalletProvider";
 import { useWallet as useWallet2 } from "@solana/wallet-adapter-react";
-import { PublicKey, Connection, ParsedAccountData } from "@solana/web3.js";
+import {
+  PublicKey,
+  Connection,
+  ParsedAccountData,
+  Keypair,
+} from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Client, UtlConfig } from "@solflare-wallet/utl-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
+import { TokenSelectorInput } from "../components/TokenSelectorInput";
 
 const DEVENT_API = "https://api.devnet.solana.com/"; // clusterApiUrl("devnet"); //
 const DEVNET_PK = "9U3CcDLVgFxH8z7QYiEjxRgimrKM9yT8XWRvWm3SqnoE";
 
+const sfClient = new StreamClient(DEVENT_API, Cluster.Devnet, "confirmed");
+
 export default function Home() {
   const wallet = useWallet();
+
+  const [streams, setStreams] = useState<
+    Awaited<ReturnType<StreamClient["get"]>>
+  >([]);
+
+  const [recipient, setRecipient] = useState<string>("");
+  const [selectedMint, setSelectedMint] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getStreams = async () => {
+      if (!wallet || !wallet.publicKey) {
+        setStreams([]);
+        return;
+      }
+
+      const sfStreams = await sfClient.get({
+        wallet: wallet.publicKey,
+      });
+
+      setStreams(sfStreams);
+    };
+
+    getStreams();
+  }, [wallet]);
 
   useEffect(() => {
     const doSomething = async () => {
@@ -92,14 +124,6 @@ export default function Home() {
 
       // console.log({ balance, parsedAcc, tokAccs, tokBalance });
 
-      const client = new StreamClient(DEVENT_API, Cluster.Devnet, "confirmed");
-
-      const sfStreams = await client.get({
-        wallet: publicKey,
-      });
-
-      console.log({ sfStreams });
-
       // const utl = new Client(
       //   new UtlConfig({
       //     /**
@@ -151,6 +175,39 @@ export default function Home() {
     doSomething();
   }, []);
 
+  const handleCreateStream = async (options: {
+    walletPublicKey: PublicKey;
+    recipientAddress: string;
+    mint: string;
+  }) => {
+    const createStreamParams: CreateParams = {
+      sender: Keypair.generate(), // TODO,
+      recipient: options.recipientAddress,
+      mint: options.mint,
+      start: Math.floor(Date.now() / 1000),
+      cliff: Math.floor(Date.now() / 1000),
+      cliffAmount: 0,
+      depositedAmount: getBN(1000000000000, 9), // Deposited amount of tokens (using smallest denomination).
+      amountPerPeriod: getBN(5000000000, 9), // Release rate: how many tokens are unlocked per each period.
+      period: 3600, // Time step (period) in seconds per which the unlocking occurs.
+      name: "Transfer to Jane Doe.", // The stream name or subject.
+      canTopup: false, // setting to FALSE will effectively create a vesting contract.
+      cancelableBySender: true, // Whether or not sender can cancel the stream.
+      cancelableByRecipient: false, // Whether or not recipient can cancel the stream.
+      transferableBySender: true, // Whether or not sender can transfer the stream.
+      transferableByRecipient: false, // Whether or not recipient can transfer the stream.
+      automaticWithdrawal: true, // [WIP] Whether or not a 3rd party (e.g. cron job, "cranker") can initiate a token withdraw/transfer.
+      withdrawalFrequency: 10, // [WIP] Relevant when automatic withdrawal is enabled. If greater than 0 our withdrawor will take care of withdrawals. If equal to 0 our withdrawor will skip, but everyone else can initiate withdrawals.
+    };
+    try {
+      const { ixs, tx, metadata } = await sfClient.create(createStreamParams);
+    } catch (exception) {
+      // handle exception
+    }
+  };
+
+  const canSubmit = !!recipient && !!selectedMint;
+
   return (
     <>
       <Head>
@@ -185,6 +242,84 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* streams listing */}
+        {streams.length <= 0 ? null : (
+          <div
+            style={{
+              margin: "20px 0",
+            }}
+          >
+            <h2>My streams:</h2>
+
+            {streams.map(([tx, stream]) => {
+              return (
+                <div
+                  key={tx}
+                  style={{
+                    margin: "8px",
+                  }}
+                >
+                  {stream.name}: {tx}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* stream creation form */}
+        {!wallet || !wallet.publicKey ? null : (
+          <div>
+            <h2>Create new stream:</h2>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                padding: "10px",
+              }}
+            >
+              <div>
+                <label>Recipient Wallet Address</label>
+                <input
+                  type="text"
+                  value={recipient}
+                  onChange={(e) => {
+                    setRecipient(e.target.value);
+                  }}
+                />
+              </div>
+
+              <div>
+                <label>Token</label>
+                <TokenSelectorInput
+                  value={selectedMint}
+                  onChange={(value) => setSelectedMint(value)}
+                />
+              </div>
+
+              <div>
+                <button
+                  onClick={() => {
+                    if (!canSubmit) {
+                      return;
+                    }
+
+                    handleCreateStream({
+                      recipientAddress: recipient,
+                      mint: selectedMint,
+                      walletPublicKey: wallet.publicKey,
+                    });
+                  }}
+                  disabled={canSubmit}
+                >
+                  Create Stream
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );
