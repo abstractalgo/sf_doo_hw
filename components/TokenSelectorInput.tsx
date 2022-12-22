@@ -1,12 +1,20 @@
+import { useEffect, useState } from "react";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { clusterApiUrl, Connection, ParsedAccountData } from "@solana/web3.js";
 import { Client, UtlConfig } from "@solflare-wallet/utl-sdk";
-import { useEffect, useState } from "react";
+import { Cluster } from "@streamflow/stream";
+
 import { useWallet } from "./WalletProvider";
+
+const CHAIN_ID = {
+  [Cluster.Mainnet]: 101,
+  [Cluster.Testnet]: 102,
+  [Cluster.Devnet]: 103,
+} as const;
 
 const utl = new Client(
   new UtlConfig({
-    chainId: 103, // 101 - mainnet, 102 - testnet, 103 - devnet
+    chainId: CHAIN_ID["devnet"],
     connection: new Connection(clusterApiUrl("devnet")),
   })
 );
@@ -43,12 +51,12 @@ export const TokenSelectorInput = ({
         {
           filters: [
             {
-              dataSize: 165, // number of bytes,
+              dataSize: 165,
             },
             {
               memcmp: {
-                offset: 32, // number of bytes
-                bytes: wallet.publicKey.toBase58(), // base58 encoded string
+                offset: 32,
+                bytes: wallet.publicKey.toBase58(),
               },
             },
           ],
@@ -60,21 +68,15 @@ export const TokenSelectorInput = ({
           const splMint = (tokenAccount.account.data as ParsedAccountData)
             .parsed.info.mint;
 
-          // const rr = await solana.getTokenAccountsByOwner(publicKey, {
-          //   mint: splMint
-          // });
-
           const tokenInfo = await utl.fetchMint(splMint);
 
           const tokenBalance = await solanaDev.getTokenAccountBalance(
             tokenAccount.pubkey
           );
 
-          const balance = await solanaDev.getBalance(tokenAccount.pubkey);
-
           return {
             mint: splMint,
-            amount: tokenBalance.value.amount,
+            amount: tokenBalance.value.amount, // TODO this is not correct :(
             symbol: tokenInfo.symbol,
           };
         })

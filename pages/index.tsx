@@ -1,31 +1,17 @@
 import Head from "next/head";
-
 import {
   StreamClient,
-  Stream,
   CreateParams,
-  CreateMultiParams,
-  WithdrawParams,
-  TransferParams,
-  TopupParams,
-  CancelParams,
-  GetAllParams,
-  StreamDirection,
-  StreamType,
   Cluster,
-  TxResponse,
-  CreateResponse,
-  BN,
   getBN,
-  getNumberFromBN,
+  BN,
 } from "@streamflow/stream";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useWallet } from "../components/WalletProvider";
-import { useWallet as useWallet2 } from "@solana/wallet-adapter-react";
-import { PublicKey, Connection, Keypair, clusterApiUrl } from "@solana/web3.js";
-import { TokenSelectorInput } from "../components/TokenSelectorInput";
+import { useCallback, useEffect, useState } from "react";
+import { Wallet } from "@project-serum/anchor";
+import { PublicKey, clusterApiUrl } from "@solana/web3.js";
 
-const DEVNET_PK = "9U3CcDLVgFxH8z7QYiEjxRgimrKM9yT8XWRvWm3SqnoE";
+import { useWallet } from "../components/WalletProvider";
+import { TokenSelectorInput } from "../components/TokenSelectorInput";
 
 const sfClient = new StreamClient(
   clusterApiUrl("devnet"),
@@ -69,15 +55,19 @@ export default function Home() {
     mint: string;
     name: string;
   }) => {
+    if (!wallet || !wallet.publicKey) {
+      return;
+    }
+
     const createStreamParams: CreateParams = {
-      sender: Keypair.generate(), // TODO,
+      sender: wallet as unknown as Wallet, // TODO
       recipient: options.recipientAddress,
       mint: options.mint,
       start: Math.floor(Date.now() / 1000),
       cliff: Math.floor(Date.now() / 1000),
-      cliffAmount: 0,
-      depositedAmount: getBN(1000000000000, 9), // Deposited amount of tokens (using smallest denomination).
-      amountPerPeriod: getBN(5000000000, 9), // Release rate: how many tokens are unlocked per each period.
+      cliffAmount: new BN(0),
+      depositedAmount: getBN(2, 9), // Deposited amount of tokens (using smallest denomination).
+      amountPerPeriod: getBN(1, 9), // Release rate: how many tokens are unlocked per each period.
       period: 3600, // Time step (period) in seconds per which the unlocking occurs.
       name: options.name,
       canTopup: false, // setting to FALSE will effectively create a vesting contract.
@@ -92,9 +82,14 @@ export default function Home() {
       const { ixs, tx, metadata } = await sfClient.create(createStreamParams);
       // we can just re-fetch streams and show it in the list
       getStreams();
-      // TODO reset form data
+
+      // reset form data
+      setRecipient("");
+      setTitle("");
+      setSelectedMint(null);
     } catch (exception) {
-      // handle exception
+      console.error(exception);
+      // handle exception ...
     }
   };
 
@@ -112,6 +107,7 @@ export default function Home() {
       <main>
         {/* wallet connector */}
         <div>
+          <div>chain: devnet</div>
           {wallet ? (
             <div>
               {!wallet.publicKey ? (
