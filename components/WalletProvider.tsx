@@ -31,8 +31,8 @@ const hasSolana = (window: Window): window is WindowWithSolana => {
 type WalletCtx =
   | null
   | {
-      connect: () => void;
       publicKey: null;
+      connect: () => void;
     }
   | {
       publicKey: PublicKey;
@@ -66,11 +66,9 @@ export const WalletProvider = ({
     }
 
     provider.on("connect", (publicKey: PublicKey) => {
-      console.log(`connect event: ${publicKey}`);
       setPubKey(publicKey);
     });
     provider.on("disconnect", () => {
-      console.log("disconnect event");
       setPubKey(null);
     });
   }, [provider]);
