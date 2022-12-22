@@ -60,14 +60,14 @@ export default function Home() {
     }
 
     const createStreamParams: CreateParams = {
-      sender: wallet as unknown as Wallet, // TODO
+      sender: wallet.wallet,
       recipient: options.recipientAddress,
       mint: options.mint,
       start: Math.floor(Date.now() / 1000),
       cliff: Math.floor(Date.now() / 1000),
       cliffAmount: new BN(0),
-      depositedAmount: getBN(2, 9), // Deposited amount of tokens (using smallest denomination).
-      amountPerPeriod: getBN(1, 9), // Release rate: how many tokens are unlocked per each period.
+      depositedAmount: getBN(2_000, 9), // Deposited amount of tokens (using smallest denomination).
+      amountPerPeriod: getBN(10, 9), // Release rate: how many tokens are unlocked per each period.
       period: 3600, // Time step (period) in seconds per which the unlocking occurs.
       name: options.name,
       canTopup: false, // setting to FALSE will effectively create a vesting contract.

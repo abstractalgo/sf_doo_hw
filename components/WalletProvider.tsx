@@ -1,3 +1,4 @@
+import { Wallet } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
 import {
   createContext,
@@ -18,7 +19,7 @@ type PhantomProvider = {
   disconnect: () => Promise<void>;
   on: (event: PhantomEvent, callback: (args: any) => void) => void;
   isPhantom: boolean;
-};
+} & Wallet;
 
 type WindowWithSolana = Window & {
   solana: PhantomProvider;
@@ -36,6 +37,7 @@ type WalletCtx =
     }
   | {
       publicKey: PublicKey;
+      wallet: Wallet;
       disconnect: () => void;
     };
 
@@ -76,12 +78,12 @@ export const WalletProvider = ({
   return (
     <walletContext.Provider
       value={
-        !walletAvail
+        !walletAvail || !provider
           ? null
           : pubKey
           ? {
               publicKey: pubKey,
-
+              wallet: provider,
               disconnect: () => {
                 provider?.disconnect();
               },
